@@ -130,7 +130,12 @@ function rowEl(t, i) {
       <div class="t-title">${esc(t.title)}</div>
       <div class="t-count"></div>
       <div class="t-track"><span class="t-bar"></span></div>
-      <div class="t-due">${dueText(t.due)}</div>
+      <div class="t-foot">
+        <span class="t-due">${dueText(t.due)}</span>
+        <button class="t-cal" aria-label="カレンダーに登録">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+        </button>
+      </div>
     </div>
     <button class="t-del" aria-label="削除">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
@@ -138,6 +143,7 @@ function rowEl(t, i) {
 
   li.querySelector(".t-check").addEventListener("click", (e) => { e.stopPropagation(); onCheck(t.id, e.currentTarget); });
   li.querySelector(".t-del").addEventListener("click", (e) => { e.stopPropagation(); removeTask(t.id); });
+  li.querySelector(".t-cal").addEventListener("click", (e) => { e.stopPropagation(); downloadICS(t); });
   li.querySelector(".t-main").addEventListener("click", () => {
     if (li.classList.contains("peek")) { li.classList.remove("peek"); return; }
     openSheet(t.id);
@@ -166,9 +172,25 @@ function paintHero() {
   hero.innerHTML = `
     <span class="hero-kicker"><span class="pip"></span>${isOver ? "OVERDUE" : "NEXT DEADLINE"}</span>
     <div class="hero-count" id="hero-count"></div>
-    <div class="hero-title">${esc(t.title)}</div>
-    <div class="hero-meta"><span class="dot"></span>${t.subject ? esc(t.subject) + " · " : ""}${dueText(t.due)}${prioHTML(prio(t))}</div>`;
+    <div class="hero-title" id="hero-title">${esc(t.title)}</div>
+    <div class="hero-meta"><span class="dot"></span>${t.subject ? esc(t.subject) + " · " : ""}${dueText(t.due)}${prioHTML(prio(t))}</div>
+    <div class="hero-actions">
+      <button class="hero-done" id="hero-done">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
+        完了にする
+      </button>
+      <button class="hero-icon" id="hero-cal" aria-label="カレンダーに登録">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+      </button>
+      <button class="hero-icon" id="hero-edit" aria-label="編集">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+      </button>
+    </div>`;
   renderHeroCount(left(t.due));
+  $("#hero-done").addEventListener("click", (e) => onCheck(t.id, e.currentTarget));
+  $("#hero-cal").addEventListener("click", () => downloadICS(t));
+  $("#hero-edit").addEventListener("click", () => openSheet(t.id));
+  $("#hero-title").addEventListener("click", () => openSheet(t.id));
 }
 function renderHeroCount(ms) {
   const el = $("#hero-count");

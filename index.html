@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=5" />
+  <link rel="stylesheet" href="styles.css?v=6" />
   <script>
     // set theme before paint to avoid flash
     (function () {
@@ -23,7 +23,7 @@
         if (!t) t = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
         document.documentElement.setAttribute("data-theme", t);
         var m = document.querySelector('meta[name="theme-color"]');
-        if (m) m.setAttribute("content", t === "light" ? "#f4f1ea" : "#0b0b0d");
+        if (m) m.setAttribute("content", t === "light" ? "#f3f0e8" : "#0b0b0d");
       } catch (e) {}
     })();
   </script>
@@ -60,7 +60,7 @@
       <span class="add-plus">＋</span><span>新しい課題を刻む</span>
     </button>
 
-    <footer class="ver">DEADLINE — build 5</footer>
+    <footer class="ver">DEADLINE — build 6</footer>
   </main>
 
   <!-- editor sheet -->
@@ -140,6 +140,6 @@
     </form>
   </div>
 
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>
