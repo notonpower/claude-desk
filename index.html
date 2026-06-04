@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=7" />
+  <link rel="stylesheet" href="styles.css?v=8" />
   <script>
     // set theme before paint to avoid flash
     (function () {
@@ -37,6 +37,7 @@
     <div class="head-right">
       <div class="clock" id="clock"></div>
       <button class="theme" id="theme" aria-label="テーマ切替"></button>
+      <button class="account" id="account" aria-label="アカウント"></button>
     </div>
   </header>
 
@@ -60,7 +61,7 @@
       <span class="add-plus">＋</span><span>新しい課題を刻む</span>
     </button>
 
-    <footer class="ver">DEADLINE — build 7</footer>
+    <footer class="ver">DEADLINE — build 8</footer>
   </main>
 
   <!-- editor sheet -->
@@ -151,6 +152,14 @@
     </form>
   </div>
 
-  <script src="app.js?v=7"></script>
+  <!-- account / login sheet -->
+  <div class="backdrop" id="auth-backdrop" hidden></div>
+  <div class="sheet" id="auth-sheet" role="dialog" aria-modal="true" hidden>
+    <div class="grip"></div>
+    <div id="auth-body"></div>
+  </div>
+
+  <script src="firebase-config.js?v=8"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>

@@ -20,13 +20,14 @@ let heroId = null;
 
 /* ---------- persistence ---------- */
 function load() { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch { return []; } }
-function save() { localStorage.setItem(STORE_KEY, JSON.stringify(tasks)); }
+function save() { localStorage.setItem(STORE_KEY, JSON.stringify(tasks)); schedulePush(); }
 function loadSubjects() { try { return JSON.parse(localStorage.getItem(SUBJ_KEY)) || []; } catch { return []; } }
 function pushSubject(s) {
   if (!s) return;
   let arr = loadSubjects().filter((x) => x !== s);
   arr.unshift(s);
   localStorage.setItem(SUBJ_KEY, JSON.stringify(arr.slice(0, 8)));
+  schedulePush();
 }
 
 /* ---------- helpers ---------- */
@@ -464,6 +465,8 @@ $("#sort-btn").addEventListener("click", () => {
 });
 
 $("#theme").addEventListener("click", () => applyTheme(currentTheme() === "light" ? "dark" : "light"));
+$("#account").addEventListener("click", openAuth);
+$("#auth-backdrop").addEventListener("click", closeAuth);
 
 $("#form").addEventListener("submit", (e) => {
   e.preventDefault();
@@ -482,12 +485,146 @@ document.addEventListener("click", (e) => {
   if (!e.target.closest(".task")) document.querySelectorAll(".task.peek").forEach((el) => el.classList.remove("peek"));
 });
 
+/* ---------- cloud sync + auth (Firebase, optional) ---------- */
+const cloud = { enabled: false, auth: null, db: null, fns: {}, providers: {}, user: null, ref: null, unsub: null, applying: false, pushTimer: null };
+
+const ICON_PERSON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>';
+const ICON_GOOGLE = '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="#4285F4" d="M22.5 12.2c0-.7-.06-1.4-.18-2.06H12v3.9h5.9a5 5 0 0 1-2.18 3.3v2.74h3.52c2.06-1.9 3.26-4.7 3.26-7.88z"/><path fill="#34A853" d="M12 23c2.95 0 5.43-.98 7.24-2.66l-3.52-2.74c-.98.66-2.24 1.05-3.72 1.05-2.86 0-5.28-1.93-6.14-4.53H2.22v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.86 14.12a6.6 6.6 0 0 1 0-4.22V7.06H2.22a11 11 0 0 0 0 9.9l3.64-2.84z"/><path fill="#EA4335" d="M12 5.35c1.6 0 3.05.55 4.18 1.63l3.13-3.13A11 11 0 0 0 12 1 11 11 0 0 0 2.22 7.06l3.64 2.84C6.72 7.3 9.14 5.35 12 5.35z"/></svg>';
+const ICON_APPLE = '<svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor"><path d="M16.36 12.78c.02 2.5 2.18 3.32 2.2 3.33-.02.06-.34 1.18-1.13 2.34-.68 1-1.39 2-2.51 2.02-1.1.02-1.45-.65-2.71-.65-1.25 0-1.64.63-2.68.67-1.08.04-1.9-1.08-2.59-2.08-1.4-2.03-2.47-5.74-1.03-8.25.71-1.24 1.99-2.03 3.38-2.05 1.06-.02 2.06.71 2.71.71.65 0 1.87-.88 3.15-.75.54.02 2.05.22 3.02 1.64-.08.05-1.8 1.05-1.78 3.05M14.3 4.6c.57-.69.96-1.65.85-2.6-.83.03-1.83.55-2.42 1.24-.53.61-1 1.59-.87 2.52.92.07 1.87-.47 2.44-1.16"/></svg>';
+
+function avatarBig(u) {
+  return u.photoURL ? `<img src="${esc(u.photoURL)}" alt="">` : `<span class="ac-letter-big">${esc((u.displayName || u.email || "?").slice(0, 1).toUpperCase())}</span>`;
+}
+function updateAccountButton() {
+  const btn = $("#account");
+  if (cloud.enabled && cloud.user) {
+    const u = cloud.user;
+    btn.innerHTML = u.photoURL ? `<img src="${esc(u.photoURL)}" alt="">` : `<span class="ac-letter">${esc((u.displayName || u.email || "?").slice(0, 1).toUpperCase())}</span>`;
+    btn.classList.add("authed");
+  } else {
+    btn.innerHTML = ICON_PERSON;
+    btn.classList.remove("authed");
+  }
+}
+
+function renderAuth() {
+  const body = $("#auth-body");
+  if (!cloud.enabled) {
+    body.innerHTML = `<h2 class="sheet-title">クラウド同期</h2>
+      <p class="auth-note">複数の端末で同期するには Firebase の設定が必要です。<br><code>firebase-config.js</code> に設定値を貼り付けてください。手順は README を参照してください。</p>
+      <button class="btn ghost" id="auth-close" style="width:100%">閉じる</button>`;
+  } else if (cloud.user) {
+    const u = cloud.user;
+    body.innerHTML = `<h2 class="sheet-title">アカウント</h2>
+      <div class="profile"><div class="avatar">${avatarBig(u)}</div>
+        <div class="profile-info"><div class="pname">${esc(u.displayName || "ユーザー")}</div><div class="pmail">${esc(u.email || "")}</div></div></div>
+      <div class="sync-state">☁ 複数端末で同期中</div>
+      <button class="btn ghost" id="auth-signout" style="width:100%">ログアウト</button>`;
+  } else {
+    body.innerHTML = `<h2 class="sheet-title">ログイン</h2>
+      <p class="auth-note">ログインすると、スマホとPCなど複数の端末で課題が同期されます。</p>
+      <button class="btn provider google" id="login-google">${ICON_GOOGLE}<span>Googleでログイン</span></button>
+      <button class="btn provider apple" id="login-apple">${ICON_APPLE}<span>Appleでログイン</span></button>
+      <button class="btn ghost" id="auth-close" style="width:100%;margin-top:6px">ローカルのまま使う</button>`;
+  }
+  const close = $("#auth-close"); if (close) close.addEventListener("click", closeAuth);
+  const g = $("#login-google"); if (g) g.addEventListener("click", () => login("google"));
+  const a = $("#login-apple"); if (a) a.addEventListener("click", () => login("apple"));
+  const out = $("#auth-signout"); if (out) out.addEventListener("click", () => { logout(); closeAuth(); });
+}
+function openAuth() { renderAuth(); $("#auth-backdrop").hidden = false; $("#auth-sheet").hidden = false; $("#auth-sheet").scrollTop = 0; }
+function closeAuth() { $("#auth-backdrop").hidden = true; $("#auth-sheet").hidden = true; }
+
+function login(which) {
+  if (!cloud.enabled) return;
+  const p = cloud.providers[which];
+  if (!p) return;
+  cloud.fns.signInWithRedirect(cloud.auth, p).catch((e) => { console.warn("login", e); toast("ログインに失敗しました"); });
+}
+function logout() { if (cloud.enabled && cloud.auth) cloud.fns.signOut(cloud.auth).catch(() => {}); }
+
+function mergeById(a, b) {
+  const m = new Map();
+  (a || []).forEach((t) => m.set(t.id, t));
+  (b || []).forEach((t) => m.set(t.id, t)); // cloud wins on id conflicts
+  return [...m.values()];
+}
+
+async function onAuthChange(user) {
+  cloud.user = user;
+  updateAccountButton();
+  if (cloud.unsub) { cloud.unsub(); cloud.unsub = null; }
+  if (!user) { renderAuth(); return; }
+  const { doc, getDoc, setDoc, onSnapshot } = cloud.fns;
+  cloud.ref = doc(cloud.db, "users", user.uid);
+  try {
+    const snap = await getDoc(cloud.ref);
+    const remote = snap.exists() ? snap.data() : null;
+    tasks = mergeById(tasks, remote && remote.tasks);
+    const subs = [...new Set([...((remote && remote.subjects) || []), ...loadSubjects()])].slice(0, 8);
+    localStorage.setItem(STORE_KEY, JSON.stringify(tasks));
+    localStorage.setItem(SUBJ_KEY, JSON.stringify(subs));
+    await setDoc(cloud.ref, { tasks, subjects: subs, updatedAt: Date.now() });
+    render();
+    cloud.unsub = onSnapshot(cloud.ref, (ds) => {
+      if (!ds.exists()) return;
+      const d = ds.data();
+      cloud.applying = true;
+      tasks = d.tasks || [];
+      localStorage.setItem(STORE_KEY, JSON.stringify(tasks));
+      if (d.subjects) localStorage.setItem(SUBJ_KEY, JSON.stringify(d.subjects));
+      cloud.applying = false;
+      render();
+    });
+    toast("同期を開始しました");
+  } catch (e) { console.warn("sync init", e); toast("同期に失敗しました"); }
+  renderAuth();
+}
+
+function schedulePush() {
+  if (!cloud.enabled || !cloud.user || cloud.applying) return;
+  clearTimeout(cloud.pushTimer);
+  cloud.pushTimer = setTimeout(() => {
+    cloud.fns.setDoc(cloud.ref, { tasks, subjects: loadSubjects(), updatedAt: Date.now() }).catch((e) => console.warn("push", e));
+  }, 600);
+}
+
+async function initFirebase() {
+  const cfg = window.FIREBASE_CONFIG;
+  if (!cfg || !cfg.apiKey) { updateAccountButton(); return; }
+  try {
+    const base = "https://www.gstatic.com/firebasejs/10.12.0/";
+    const [appMod, authMod, fsMod] = await Promise.all([
+      import(base + "firebase-app.js"),
+      import(base + "firebase-auth.js"),
+      import(base + "firebase-firestore.js"),
+    ]);
+    const app = appMod.initializeApp(cfg);
+    cloud.auth = authMod.getAuth(app);
+    cloud.db = fsMod.getFirestore(app);
+    cloud.fns = { ...authMod, ...fsMod };
+    cloud.providers.google = new authMod.GoogleAuthProvider();
+    const apple = new authMod.OAuthProvider("apple.com");
+    apple.addScope("email"); apple.addScope("name");
+    cloud.providers.apple = apple;
+    cloud.enabled = true;
+    try { await authMod.getRedirectResult(cloud.auth); } catch (e) { console.warn("redirect result", e); }
+    authMod.onAuthStateChanged(cloud.auth, onAuthChange);
+  } catch (e) {
+    console.warn("Firebase unavailable; running local-only.", e);
+    cloud.enabled = false;
+  }
+  updateAccountButton();
+}
+
 /* ---------- boot ---------- */
 applyTheme(currentTheme());
 buildMark();
 updateClock();
 updateSortLabel();
+updateAccountButton();
 render();
+initFirebase();
 setInterval(() => { updateClock(); tick(); }, 1000);
 
 /* ---------- service worker (auto-update) ---------- */

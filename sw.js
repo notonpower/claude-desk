@@ -1,10 +1,11 @@
 // DEADLINE service worker — network-first so updates always land.
-const CACHE = "deadline-v7";
+const CACHE = "deadline-v8";
 const CORE = [
   "./",
   "./index.html",
-  "./styles.css?v=7",
-  "./app.js?v=7",
+  "./styles.css?v=8",
+  "./app.js?v=8",
+  "./firebase-config.js?v=8",
   "./manifest.webmanifest",
   "./icon.svg",
 ];
