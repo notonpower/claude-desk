@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=3" />
+  <link rel="stylesheet" href="styles.css?v=4" />
 </head>
 <body>
   <div class="noise" aria-hidden="true"></div>
@@ -26,7 +26,6 @@
   </header>
 
   <main class="main">
-    <!-- HERO: most urgent task, big and alive -->
     <section class="hero" id="hero" aria-live="polite"></section>
 
     <div class="rule" aria-hidden="true"></div>
@@ -46,7 +45,7 @@
       <span class="add-plus">＋</span><span>新しい課題を刻む</span>
     </button>
 
-    <footer class="ver">DEADLINE — build 3</footer>
+    <footer class="ver">DEADLINE — build 4</footer>
   </main>
 
   <!-- editor sheet -->
@@ -55,31 +54,61 @@
     <div class="grip"></div>
     <h2 id="sheet-title" class="sheet-title">新しい課題</h2>
     <form id="form" autocomplete="off">
-      <label class="field" style="--d:1">
-        <span>課題名</span>
-        <input type="text" id="f-title" placeholder="レポート提出" required maxlength="80" />
-      </label>
-      <label class="field" style="--d:2">
-        <span>科目・タグ</span>
-        <input type="text" id="f-subject" placeholder="統計学" maxlength="40" />
-      </label>
-      <div class="row" style="--d:3">
+      <div class="block" style="--d:1">
         <label class="field">
-          <span>締切日</span>
-          <input type="date" id="f-date" required />
+          <span>課題名</span>
+          <input type="text" id="f-title" placeholder="レポート提出" required maxlength="80" />
         </label>
+        <div class="quick" id="title-quick">
+          <button type="button" class="q" data-fill="レポート">レポート</button>
+          <button type="button" class="q" data-fill="リアクションペーパー">リアぺ</button>
+          <button type="button" class="q" data-fill="小テスト">小テスト</button>
+          <button type="button" class="q" data-fill="定期テスト勉強">定期テスト勉強</button>
+          <button type="button" class="q" data-fill="課題提出">課題提出</button>
+          <button type="button" class="q" data-fill="予習・復習">予習・復習</button>
+          <button type="button" class="q" data-fill="プレゼン準備">プレゼン準備</button>
+        </div>
+      </div>
+
+      <div class="block" style="--d:2">
         <label class="field">
-          <span>時刻</span>
-          <input type="time" id="f-time" value="23:59" required />
+          <span>科目・タグ</span>
+          <input type="text" id="f-subject" placeholder="統計学" maxlength="40" />
         </label>
+        <div class="quick" id="subject-quick" hidden></div>
       </div>
-      <div class="swatches" id="swatches" style="--d:4" aria-label="カラー">
-        <button type="button" class="sw" data-color="violet" style="--sw:#9b8cff"></button>
-        <button type="button" class="sw" data-color="cyan" style="--sw:#4ad0c8"></button>
-        <button type="button" class="sw" data-color="lime" style="--sw:#bfe04a"></button>
-        <button type="button" class="sw" data-color="amber" style="--sw:#f0a73c"></button>
-        <button type="button" class="sw" data-color="rose" style="--sw:#f2719b"></button>
+
+      <div class="block" style="--d:3">
+        <span class="block-label">締切</span>
+        <div class="quick" id="date-quick">
+          <button type="button" class="q" data-when="today">今日</button>
+          <button type="button" class="q" data-when="tomorrow">明日</button>
+          <button type="button" class="q" data-when="weekend">今週末</button>
+          <button type="button" class="q" data-when="nextweek">来週</button>
+        </div>
+        <div class="row">
+          <label class="mini">
+            <span>日付</span>
+            <input type="date" id="f-date" required />
+          </label>
+          <label class="mini">
+            <span>時刻</span>
+            <input type="time" id="f-time" value="23:59" required />
+          </label>
+        </div>
       </div>
+
+      <div class="block" style="--d:4">
+        <span class="block-label">カラー</span>
+        <div class="swatches" id="swatches" aria-label="カラー">
+          <button type="button" class="sw" data-color="violet" style="--sw:#9b8cff"></button>
+          <button type="button" class="sw" data-color="cyan" style="--sw:#4ad0c8"></button>
+          <button type="button" class="sw" data-color="lime" style="--sw:#bfe04a"></button>
+          <button type="button" class="sw" data-color="amber" style="--sw:#f0a73c"></button>
+          <button type="button" class="sw" data-color="rose" style="--sw:#f2719b"></button>
+        </div>
+      </div>
+
       <div class="actions" style="--d:5">
         <button type="button" class="btn del" id="del-btn" hidden>削除</button>
         <button type="button" class="btn ghost" id="cancel-btn">やめる</button>
@@ -88,6 +117,6 @@
     </form>
   </div>
 
-  <script src="app.js?v=3"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
