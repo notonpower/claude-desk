@@ -1,0 +1,14 @@
+{
+  "name": "DEADLINE — 課題トラッカー",
+  "short_name": "DEADLINE",
+  "description": "課題の締め切りを美しく管理するミニマルなトラッカー",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#08080c",
+  "theme_color": "#08080c",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
