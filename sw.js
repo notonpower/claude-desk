@@ -1,5 +1,5 @@
 // Offline-first service worker for DEADLINE
-const CACHE = "deadline-v1";
+const CACHE = "deadline-v2";
 const ASSETS = [
   "./",
   "./index.html",

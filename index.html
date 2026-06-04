@@ -2,86 +2,68 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
-  <meta name="theme-color" content="#08080c" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0b0d" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="description" content="課題の締め切りを美しく管理するミニマルなトラッカー" />
-  <title>DEADLINE — 課題トラッカー</title>
+  <meta name="description" content="課題の締め切りを刻むエディトリアルなトラッカー" />
+  <title>DEADLINE</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="icon.svg" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="grain" aria-hidden="true"></div>
-  <div class="glow" aria-hidden="true"></div>
+  <div class="noise" aria-hidden="true"></div>
+  <div class="orbit" aria-hidden="true"></div>
 
-  <header class="app-header">
-    <div class="brand">
-      <span class="brand-mark"></span>
-      <h1>DEADLINE</h1>
-    </div>
-    <div class="header-meta">
-      <span id="today" class="today"></span>
-    </div>
+  <header class="head">
+    <div class="mark" id="mark" aria-label="DEADLINE"></div>
+    <div class="clock" id="clock"></div>
   </header>
 
-  <main class="app-main">
-    <section class="summary" id="summary" aria-label="サマリー">
-      <div class="summary-card">
-        <span class="summary-num" id="count-active">0</span>
-        <span class="summary-label">進行中</span>
-      </div>
-      <div class="summary-card danger">
-        <span class="summary-num" id="count-urgent">0</span>
-        <span class="summary-label">24時間以内</span>
-      </div>
-      <div class="summary-card done">
-        <span class="summary-num" id="count-done">0</span>
-        <span class="summary-label">完了</span>
-      </div>
-    </section>
+  <main class="main">
+    <!-- HERO: most urgent task, big and alive -->
+    <section class="hero" id="hero" aria-live="polite"></section>
 
-    <nav class="filters" id="filters" aria-label="フィルター">
-      <button class="chip active" data-filter="active">進行中</button>
-      <button class="chip" data-filter="done">完了</button>
-      <button class="chip" data-filter="all">すべて</button>
-    </nav>
+    <div class="rule" aria-hidden="true"></div>
 
-    <ul class="task-list" id="task-list" aria-live="polite"></ul>
-
-    <div class="empty" id="empty" hidden>
-      <div class="empty-ring"></div>
-      <p>まだ課題がありません</p>
-      <span>右下の <b>+</b> から追加しよう</span>
+    <div class="list-head">
+      <span class="list-label" id="list-label">UPCOMING</span>
+      <div class="toggles" id="toggles">
+        <button class="tg on" data-filter="active">進行中</button>
+        <button class="tg" data-filter="done">完了</button>
+        <button class="tg" data-filter="all">全部</button>
+      </div>
     </div>
+
+    <ul class="list" id="list"></ul>
+
+    <button class="add" id="add">
+      <span class="add-plus">＋</span><span>新しい課題を刻む</span>
+    </button>
   </main>
 
-  <button class="fab" id="fab" aria-label="課題を追加">
-    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-  </button>
-
-  <!-- Sheet / modal -->
-  <div class="sheet-backdrop" id="backdrop" hidden></div>
+  <!-- editor sheet -->
+  <div class="backdrop" id="backdrop" hidden></div>
   <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" hidden>
-    <div class="sheet-handle"></div>
-    <h2 id="sheet-title">新しい課題</h2>
-    <form id="task-form">
-      <label class="field">
+    <div class="grip"></div>
+    <h2 id="sheet-title" class="sheet-title">新しい課題</h2>
+    <form id="form" autocomplete="off">
+      <label class="field" style="--d:1">
         <span>課題名</span>
-        <input type="text" id="f-title" placeholder="例: レポート提出" required maxlength="80" autocomplete="off" />
+        <input type="text" id="f-title" placeholder="レポート提出" required maxlength="80" />
       </label>
-      <label class="field">
-        <span>科目 / タグ</span>
-        <input type="text" id="f-subject" placeholder="例: 統計学" maxlength="40" autocomplete="off" />
+      <label class="field" style="--d:2">
+        <span>科目・タグ</span>
+        <input type="text" id="f-subject" placeholder="統計学" maxlength="40" />
       </label>
-      <div class="field-row">
+      <div class="row" style="--d:3">
         <label class="field">
-          <span>締め切り日</span>
+          <span>締切日</span>
           <input type="date" id="f-date" required />
         </label>
         <label class="field">
@@ -89,16 +71,17 @@
           <input type="time" id="f-time" value="23:59" required />
         </label>
       </div>
-      <div class="color-pick" id="color-pick" aria-label="カラー">
-        <button type="button" class="swatch" data-color="violet" style="--sw:#8b7bff"></button>
-        <button type="button" class="swatch" data-color="cyan" style="--sw:#3fd9d4"></button>
-        <button type="button" class="swatch" data-color="lime" style="--sw:#b6f24a"></button>
-        <button type="button" class="swatch" data-color="amber" style="--sw:#ffb454"></button>
-        <button type="button" class="swatch" data-color="rose" style="--sw:#ff6b9d"></button>
+      <div class="swatches" id="swatches" style="--d:4" aria-label="カラー">
+        <button type="button" class="sw" data-color="violet" style="--sw:#9b8cff"></button>
+        <button type="button" class="sw" data-color="cyan" style="--sw:#4ad0c8"></button>
+        <button type="button" class="sw" data-color="lime" style="--sw:#bfe04a"></button>
+        <button type="button" class="sw" data-color="amber" style="--sw:#f0a73c"></button>
+        <button type="button" class="sw" data-color="rose" style="--sw:#f2719b"></button>
       </div>
-      <div class="sheet-actions">
-        <button type="button" class="btn ghost" id="cancel-btn">キャンセル</button>
-        <button type="submit" class="btn primary" id="save-btn">追加する</button>
+      <div class="actions" style="--d:5">
+        <button type="button" class="btn del" id="del-btn" hidden>削除</button>
+        <button type="button" class="btn ghost" id="cancel-btn">やめる</button>
+        <button type="submit" class="btn solid" id="save-btn">刻む</button>
       </div>
     </form>
   </div>
