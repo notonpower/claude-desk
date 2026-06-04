@@ -1,10 +1,10 @@
 // DEADLINE service worker — network-first so updates always land.
-const CACHE = "deadline-v4";
+const CACHE = "deadline-v5";
 const CORE = [
   "./",
   "./index.html",
-  "./styles.css?v=4",
-  "./app.js?v=4",
+  "./styles.css?v=5",
+  "./app.js?v=5",
   "./manifest.webmanifest",
   "./icon.svg",
 ];

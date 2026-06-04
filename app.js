@@ -1,12 +1,18 @@
 // DEADLINE — editorial, motion-rich assignment deadline tracker
 const STORE_KEY = "deadline.tasks.v1";
 const SUBJ_KEY = "deadline.subjects.v1";
-const COLORS = { violet: "#9b8cff", cyan: "#4ad0c8", lime: "#bfe04a", amber: "#f0a73c", rose: "#f2719b" };
+const THEME_KEY = "deadline.theme";
+const SORT_KEY = "deadline.sort";
+const COLOR_NAMES = ["violet", "cyan", "lime", "amber", "rose"];
+const PRIO_W = { high: 2, normal: 1, low: 0 };
+const PRIO_LABEL = { low: "低", normal: "中", high: "高" };
 const WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
 let tasks = load();
 let filter = "active";
+let sortMode = localStorage.getItem(SORT_KEY) || "due"; // "due" | "priority"
 let pickedColor = "violet";
+let pickedPrio = "normal";
 let editingId = null;
 let heroId = null;
 
@@ -29,17 +35,19 @@ const left = (due) => new Date(due).getTime() - Date.now();
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const vtName = (id) => "t-" + id.replace(/[^a-z0-9]/gi, "");
 const p2 = (n) => String(n).padStart(2, "0");
+const prio = (t) => t.priority || "normal";
+const accentVar = (name) => "var(--" + (COLOR_NAMES.includes(name) ? name : "violet") + ")";
+const accentHex = (name) => getComputedStyle(document.documentElement).getPropertyValue("--" + (COLOR_NAMES.includes(name) ? name : "violet")).trim() || "#9b8cff";
 
 function breakdown(ms) {
   const a = Math.abs(ms);
   return { d: Math.floor(a / 86400000), h: Math.floor((a % 86400000) / 3600000), m: Math.floor((a % 3600000) / 60000), s: Math.floor((a % 60000) / 1000) };
 }
 function relText(ms) {
-  const { d, h, m } = breakdown(ms);
-  const sec = breakdown(ms).s;
+  const { d, h, m, s } = breakdown(ms);
   if (ms <= 0) { if (d >= 1) return `${d}日 超過`; if (h >= 1) return `${h}時間 超過`; return `${m}分 超過`; }
   if (d >= 1) return `残り ${d}日 ${h}時間`;
-  return `まもなく ${p2(h)}:${p2(m)}:${p2(sec)}`;
+  return `まもなく ${p2(h)}:${p2(m)}:${p2(s)}`;
 }
 function dueText(due) {
   const d = new Date(due);
@@ -47,7 +55,20 @@ function dueText(due) {
   return `${d.getMonth() + 1}.${p2(d.getDate())} ${wd} · ${p2(d.getHours())}:${p2(d.getMinutes())}`;
 }
 function barPct(ms) { return ms <= 0 ? 0 : Math.max(2, Math.min(100, (ms / WINDOW_MS) * 100)); }
-function sortTasks(arr) { return [...arr].sort((a, b) => (a.done !== b.done ? (a.done ? 1 : -1) : new Date(a.due) - new Date(b.due))); }
+function prioHTML(level) {
+  return `<span class="prio p-${level}"><span class="bars"><i></i><i></i><i></i></span>${PRIO_LABEL[level] || "中"}</span>`;
+}
+
+function sortTasks(arr) {
+  return [...arr].sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    if (sortMode === "priority") {
+      const pd = PRIO_W[prio(b)] - PRIO_W[prio(a)];
+      if (pd) return pd;
+    }
+    return new Date(a.due) - new Date(b.due);
+  });
+}
 
 function pickHeroId() {
   const active = tasks.filter((t) => !t.done);
@@ -68,20 +89,15 @@ function paint() {
   heroId = pickHeroId();
   paintHero();
 
-  const sorted = sortTasks(tasks);
-  const visible = sorted
+  const visible = sortTasks(tasks)
     .filter((t) => (filter === "active" ? !t.done : filter === "done" ? t.done : true))
-    .filter((t) => t.id !== heroId); // never repeat the hero task
-
-  $("#list-label").textContent = filter === "done" ? "DONE" : filter === "all" ? "ALL" : "UPCOMING";
+    .filter((t) => t.id !== heroId);
 
   const list = $("#list");
   list.innerHTML = "";
 
   if (!visible.length) {
-    const note = filter === "done"
-      ? "完了した課題はまだない"
-      : heroId ? "次の締切はこの上の1件だけ" : "ここに課題が並ぶ";
+    const note = filter === "done" ? "完了した課題はまだない" : heroId ? "次の締切はこの上の1件だけ" : "ここに課題が並ぶ";
     const li = document.createElement("li");
     li.className = "task";
     li.style.borderBottom = "none";
@@ -95,11 +111,10 @@ function paint() {
 }
 
 function rowEl(t, i) {
-  const color = COLORS[t.color] || COLORS.violet;
   const li = document.createElement("li");
   li.className = "task";
   li.dataset.id = t.id;
-  li.style.setProperty("--c", color);
+  li.style.setProperty("--c", accentVar(t.color));
   li.style.setProperty("--i", i);
   li.style.viewTransitionName = vtName(t.id);
 
@@ -108,7 +123,10 @@ function rowEl(t, i) {
       <svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
     </button>
     <div class="t-main">
-      <div class="t-top"><span class="t-idx">${p2(i + 1)}</span>${t.subject ? `<span class="t-subject">${esc(t.subject)}</span>` : ""}</div>
+      <div class="t-top">
+        <span class="t-top-l"><span class="t-idx">${p2(i + 1)}</span>${t.subject ? `<span class="t-subject">${esc(t.subject)}</span>` : ""}</span>
+        ${prioHTML(prio(t))}
+      </div>
       <div class="t-title">${esc(t.title)}</div>
       <div class="t-count"></div>
       <div class="t-track"><span class="t-bar"></span></div>
@@ -141,16 +159,15 @@ function paintHero() {
     return;
   }
   const t = tasks.find((x) => x.id === heroId);
-  const color = COLORS[t.color] || COLORS.violet;
   const isOver = left(t.due) <= 0;
   hero.className = "hero" + (isOver ? " over" : "");
-  hero.style.setProperty("--c", color);
+  hero.style.setProperty("--c", accentVar(t.color));
   hero.dataset.id = t.id;
   hero.innerHTML = `
     <span class="hero-kicker"><span class="pip"></span>${isOver ? "OVERDUE" : "NEXT DEADLINE"}</span>
     <div class="hero-count" id="hero-count"></div>
     <div class="hero-title">${esc(t.title)}</div>
-    <div class="hero-meta"><span class="dot"></span>${t.subject ? esc(t.subject) + " · " : ""}${dueText(t.due)}</div>`;
+    <div class="hero-meta"><span class="dot"></span>${t.subject ? esc(t.subject) + " · " : ""}${dueText(t.due)}${prioHTML(prio(t))}</div>`;
   renderHeroCount(left(t.due));
 }
 function renderHeroCount(ms) {
@@ -186,7 +203,7 @@ function tick() {
 function celebrate(x, y, color) {
   if (reduceMotion()) return;
   if (navigator.vibrate) navigator.vibrate(30);
-  const palette = [color, "#f4f1ea", "#ff3d2e"];
+  const palette = [color, "var-ink", "#ff3d2e"].map((c) => (c === "var-ink" ? getComputedStyle(document.documentElement).getPropertyValue("--ink").trim() : c));
   for (let i = 0; i < 22; i++) {
     const s = document.createElement("span");
     s.className = "spark";
@@ -212,7 +229,7 @@ function onCheck(id, btn) {
   if (!t) return;
   if (!t.done) {
     const r = btn.getBoundingClientRect();
-    celebrate(r.left + r.width / 2, r.top + r.height / 2, COLORS[t.color] || COLORS.violet);
+    celebrate(r.left + r.width / 2, r.top + r.height / 2, accentHex(t.color));
     btn.classList.remove("pop"); void btn.offsetWidth; btn.classList.add("pop");
   }
   t.done = !t.done;
@@ -235,6 +252,39 @@ function attachSwipe(li) {
 /* ---------- mutations ---------- */
 function removeTask(id) { tasks = tasks.filter((x) => x.id !== id); save(); render(); }
 
+/* ---------- calendar (.ics) ---------- */
+function icsDate(d) {
+  return d.getUTCFullYear() + p2(d.getUTCMonth() + 1) + p2(d.getUTCDate()) + "T" + p2(d.getUTCHours()) + p2(d.getUTCMinutes()) + p2(d.getUTCSeconds()) + "Z";
+}
+function icsEsc(s) { return String(s).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n"); }
+function downloadICS(t) {
+  const start = new Date(t.due);
+  const end = new Date(start.getTime() + 30 * 60000);
+  const summary = (t.subject ? "[" + t.subject + "] " : "") + t.title;
+  const lines = [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//DEADLINE//JP//", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    "UID:" + t.id + "@deadline",
+    "DTSTAMP:" + icsDate(new Date()),
+    "DTSTART:" + icsDate(start),
+    "DTEND:" + icsDate(end),
+    "SUMMARY:" + icsEsc("⏰ " + summary),
+    "DESCRIPTION:" + icsEsc("課題の締め切り（DEADLINE）"),
+    "BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:" + icsEsc("締め切り24時間前"), "TRIGGER:-PT24H", "END:VALARM",
+    "BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:" + icsEsc("締め切り1時間前"), "TRIGGER:-PT1H", "END:VALARM",
+    "END:VEVENT", "END:VCALENDAR",
+  ];
+  const blob = new Blob([lines.join("\r\n")], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = (t.title || "deadline").replace(/[\\/:*?"<>|]/g, "_") + ".ics";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
 /* ---------- sheet ---------- */
 function buildSubjectChips() {
   const wrap = $("#subject-quick");
@@ -243,12 +293,23 @@ function buildSubjectChips() {
   wrap.hidden = false;
   wrap.innerHTML = recents.map((s) => `<button type="button" class="q">${esc(s)}</button>`).join("");
 }
+function setColor(c) { pickedColor = c; document.querySelectorAll(".sw").forEach((s) => s.classList.toggle("on", s.dataset.color === c)); }
+function setPrio(p) { pickedPrio = p; document.querySelectorAll("#prio-seg button").forEach((b) => b.classList.toggle("on", b.dataset.prio === p)); }
+function markOne(container, btn) { container.querySelectorAll(".q").forEach((q) => q.classList.toggle("on", q === btn)); }
+function quickDate(when) {
+  const d = new Date();
+  if (when === "tomorrow") d.setDate(d.getDate() + 1);
+  else if (when === "nextweek") d.setDate(d.getDate() + 7);
+  else if (when === "weekend") d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7));
+  return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+}
 
 function openSheet(id = null) {
   editingId = id;
   $("#sheet-title").textContent = id ? "課題を編集" : "新しい課題";
   $("#save-btn").textContent = id ? "保存" : "刻む";
   $("#del-btn").hidden = !id;
+  $("#cal-btn").hidden = !id;
   buildSubjectChips();
   document.querySelectorAll(".q.on").forEach((q) => q.classList.remove("on"));
 
@@ -260,12 +321,14 @@ function openSheet(id = null) {
     $("#f-date").value = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
     $("#f-time").value = `${p2(d.getHours())}:${p2(d.getMinutes())}`;
     setColor(t.color || "violet");
+    setPrio(prio(t));
   } else {
     $("#form").reset();
     $("#f-time").value = "23:59";
     const d = new Date();
     $("#f-date").value = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
     setColor("violet");
+    setPrio("normal");
   }
 
   $("#backdrop").hidden = false;
@@ -274,18 +337,18 @@ function openSheet(id = null) {
   document.querySelectorAll(".task.peek").forEach((el) => el.classList.remove("peek"));
 }
 function closeSheet() { $("#backdrop").hidden = true; $("#sheet").hidden = true; editingId = null; }
-function setColor(c) { pickedColor = c; document.querySelectorAll(".sw").forEach((s) => s.classList.toggle("on", s.dataset.color === c)); }
 
-function markOne(container, btn) {
-  container.querySelectorAll(".q").forEach((q) => q.classList.toggle("on", q === btn));
+/* ---------- theme ---------- */
+const SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+const MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  localStorage.setItem(THEME_KEY, theme);
+  const m = document.querySelector('meta[name="theme-color"]');
+  if (m) m.setAttribute("content", theme === "light" ? "#f3f0e8" : "#0b0b0d");
+  $("#theme").innerHTML = theme === "light" ? MOON : SUN; // icon shows what you'll switch TO
 }
-function quickDate(when) {
-  const d = new Date();
-  if (when === "tomorrow") d.setDate(d.getDate() + 1);
-  else if (when === "nextweek") d.setDate(d.getDate() + 7);
-  else if (when === "weekend") d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7)); // upcoming Saturday
-  return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
-}
+function currentTheme() { return document.documentElement.getAttribute("data-theme") || "dark"; }
 
 /* ---------- clock + wordmark ---------- */
 function updateClock() {
@@ -297,29 +360,20 @@ function buildMark() {
   const word = "DEADLINE";
   $("#mark").innerHTML = [...word].map((ch, i) => `<span style="--i:${i}">${ch}</span>`).join("") + `<span class="deg" style="--i:${word.length}">°</span>`;
 }
+function updateSortLabel() { $("#sort-label").textContent = sortMode === "priority" ? "優先度順" : "締切順"; }
 
 /* ---------- events ---------- */
 $("#add").addEventListener("click", () => openSheet());
 $("#cancel-btn").addEventListener("click", closeSheet);
 $("#backdrop").addEventListener("click", closeSheet);
 $("#del-btn").addEventListener("click", () => { if (editingId) { removeTask(editingId); closeSheet(); } });
+$("#cal-btn").addEventListener("click", () => { const t = tasks.find((x) => x.id === editingId); if (t) downloadICS(t); });
 $("#swatches").addEventListener("click", (e) => { const sw = e.target.closest(".sw"); if (sw) setColor(sw.dataset.color); });
+$("#prio-seg").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) setPrio(b.dataset.prio); });
 
-$("#title-quick").addEventListener("click", (e) => {
-  const b = e.target.closest(".q"); if (!b) return;
-  $("#f-title").value = b.dataset.fill;
-  markOne($("#title-quick"), b);
-});
-$("#subject-quick").addEventListener("click", (e) => {
-  const b = e.target.closest(".q"); if (!b) return;
-  $("#f-subject").value = b.textContent;
-  markOne($("#subject-quick"), b);
-});
-$("#date-quick").addEventListener("click", (e) => {
-  const b = e.target.closest(".q"); if (!b) return;
-  $("#f-date").value = quickDate(b.dataset.when);
-  markOne($("#date-quick"), b);
-});
+$("#title-quick").addEventListener("click", (e) => { const b = e.target.closest(".q"); if (!b) return; $("#f-title").value = b.dataset.fill; markOne($("#title-quick"), b); });
+$("#subject-quick").addEventListener("click", (e) => { const b = e.target.closest(".q"); if (!b) return; $("#f-subject").value = b.textContent; markOne($("#subject-quick"), b); });
+$("#date-quick").addEventListener("click", (e) => { const b = e.target.closest(".q"); if (!b) return; $("#f-date").value = quickDate(b.dataset.when); markOne($("#date-quick"), b); });
 
 $("#toggles").addEventListener("click", (e) => {
   const b = e.target.closest(".tg"); if (!b) return;
@@ -328,6 +382,15 @@ $("#toggles").addEventListener("click", (e) => {
   render();
 });
 
+$("#sort-btn").addEventListener("click", () => {
+  sortMode = sortMode === "due" ? "priority" : "due";
+  localStorage.setItem(SORT_KEY, sortMode);
+  updateSortLabel();
+  render();
+});
+
+$("#theme").addEventListener("click", () => applyTheme(currentTheme() === "light" ? "dark" : "light"));
+
 $("#form").addEventListener("submit", (e) => {
   e.preventDefault();
   const title = $("#f-title").value.trim();
@@ -335,8 +398,8 @@ $("#form").addEventListener("submit", (e) => {
   const date = $("#f-date").value, time = $("#f-time").value;
   if (!title || !date || !time) return;
   const due = new Date(`${date}T${time}`).toISOString();
-  if (editingId) Object.assign(tasks.find((x) => x.id === editingId), { title, subject, due, color: pickedColor });
-  else tasks.push({ id: uid(), title, subject, due, color: pickedColor, done: false });
+  if (editingId) Object.assign(tasks.find((x) => x.id === editingId), { title, subject, due, color: pickedColor, priority: pickedPrio });
+  else tasks.push({ id: uid(), title, subject, due, color: pickedColor, priority: pickedPrio, done: false });
   pushSubject(subject);
   save(); closeSheet(); render();
 });
@@ -346,8 +409,10 @@ document.addEventListener("click", (e) => {
 });
 
 /* ---------- boot ---------- */
+applyTheme(currentTheme());
 buildMark();
 updateClock();
+updateSortLabel();
 render();
 setInterval(() => { updateClock(); tick(); }, 1000);
 
