@@ -170,7 +170,9 @@ body {
 .task.urgent .t-bar, .task.over .t-bar { background: var(--signal); }
 
 .t-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 9px; }
+.t-foot-l { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
 .t-due { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--ink-faint); }
+.t-repeat { font-family: "JetBrains Mono", monospace; font-size: 10px; letter-spacing: 0.06em; color: var(--ink-dim); display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; }
 .t-cal { flex-shrink: 0; width: 32px; height: 32px; display: grid; place-items: center; background: none; border: 1px solid var(--rule); border-radius: 9px; color: var(--ink-dim); cursor: pointer; transition: transform 0.1s ease, color 0.2s ease, border-color 0.2s ease; }
 .t-cal:active { transform: scale(0.92); }
 .t-cal svg { width: 15px; height: 15px; }
@@ -242,6 +244,17 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .btn.del { background: none; color: var(--signal); border: 1px solid rgba(255,61,46,0.4); padding: 15px 18px; }
 .btn.cal { width: 100%; background: var(--bg); color: var(--ink); border: 1px solid var(--rule); display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 14px; }
 .btn.cal svg { width: 17px; height: 17px; }
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(30px + var(--safe-b)); z-index: 40;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--ink); color: var(--bg);
+  font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap;
+  padding: 13px 20px; border-radius: 999px; pointer-events: none;
+  opacity: 0; transition: opacity 0.3s var(--ease), transform 0.3s var(--ease);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.3);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 [hidden] { display: none !important; }
 

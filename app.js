@@ -6,6 +6,7 @@ const SORT_KEY = "deadline.sort";
 const COLOR_NAMES = ["violet", "cyan", "lime", "amber", "rose"];
 const PRIO_W = { high: 2, normal: 1, low: 0 };
 const PRIO_LABEL = { low: "低", normal: "中", high: "高" };
+const REP_LABEL = { daily: "毎日", weekly: "毎週", biweekly: "隔週", monthly: "毎月" };
 const WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
 let tasks = load();
@@ -13,6 +14,7 @@ let filter = "active";
 let sortMode = localStorage.getItem(SORT_KEY) || "due"; // "due" | "priority"
 let pickedColor = "violet";
 let pickedPrio = "normal";
+let pickedRepeat = "none";
 let editingId = null;
 let heroId = null;
 
@@ -36,6 +38,30 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&
 const vtName = (id) => "t-" + id.replace(/[^a-z0-9]/gi, "");
 const p2 = (n) => String(n).padStart(2, "0");
 const prio = (t) => t.priority || "normal";
+const rep = (t) => t.repeat || "none";
+
+function nextDue(iso, repeat) {
+  const d = new Date(iso);
+  const advance = () => {
+    if (repeat === "daily") d.setDate(d.getDate() + 1);
+    else if (repeat === "weekly") d.setDate(d.getDate() + 7);
+    else if (repeat === "biweekly") d.setDate(d.getDate() + 14);
+    else if (repeat === "monthly") d.setMonth(d.getMonth() + 1);
+  };
+  let guard = 0;
+  do { advance(); guard++; } while (d.getTime() <= Date.now() && guard < 1000);
+  return d.toISOString();
+}
+
+let toastTimer = null;
+function toast(msg) {
+  let el = document.querySelector(".toast");
+  if (!el) { el = document.createElement("div"); el.className = "toast"; document.body.appendChild(el); }
+  el.textContent = msg;
+  requestAnimationFrame(() => el.classList.add("show"));
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 2200);
+}
 const accentVar = (name) => "var(--" + (COLOR_NAMES.includes(name) ? name : "violet") + ")";
 const accentHex = (name) => getComputedStyle(document.documentElement).getPropertyValue("--" + (COLOR_NAMES.includes(name) ? name : "violet")).trim() || "#9b8cff";
 
@@ -131,7 +157,10 @@ function rowEl(t, i) {
       <div class="t-count"></div>
       <div class="t-track"><span class="t-bar"></span></div>
       <div class="t-foot">
-        <span class="t-due">${dueText(t.due)}</span>
+        <div class="t-foot-l">
+          <span class="t-due">${dueText(t.due)}</span>
+          ${rep(t) !== "none" ? `<span class="t-repeat">↻ ${REP_LABEL[rep(t)]}</span>` : ""}
+        </div>
         <button class="t-cal" aria-label="カレンダーに登録">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
         </button>
@@ -173,7 +202,7 @@ function paintHero() {
     <span class="hero-kicker"><span class="pip"></span>${isOver ? "OVERDUE" : "NEXT DEADLINE"}</span>
     <div class="hero-count" id="hero-count"></div>
     <div class="hero-title" id="hero-title">${esc(t.title)}</div>
-    <div class="hero-meta"><span class="dot"></span>${t.subject ? esc(t.subject) + " · " : ""}${dueText(t.due)}${prioHTML(prio(t))}</div>
+    <div class="hero-meta"><span class="dot"></span>${t.subject ? esc(t.subject) + " · " : ""}${dueText(t.due)}${rep(t) !== "none" ? ` · ↻ ${REP_LABEL[rep(t)]}` : ""}${prioHTML(prio(t))}</div>
     <div class="hero-actions">
       <button class="hero-done" id="hero-done">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
@@ -249,12 +278,31 @@ function celebrate(x, y, color) {
 function onCheck(id, btn) {
   const t = tasks.find((x) => x.id === id);
   if (!t) return;
-  if (!t.done) {
+  const willComplete = !t.done;
+  if (willComplete) {
     const r = btn.getBoundingClientRect();
     celebrate(r.left + r.width / 2, r.top + r.height / 2, accentHex(t.color));
     btn.classList.remove("pop"); void btn.offsetWidth; btn.classList.add("pop");
   }
   t.done = !t.done;
+
+  // recurring: spawn the next occurrence once, when first completed
+  if (willComplete && rep(t) !== "none" && !t.spawned) {
+    t.spawned = true;
+    tasks.push({
+      id: uid(),
+      title: t.title,
+      subject: t.subject,
+      due: nextDue(t.due, rep(t)),
+      color: t.color,
+      priority: t.priority || "normal",
+      repeat: t.repeat,
+      done: false,
+      spawned: false,
+    });
+    toast(`次回ぶんを作成しました（${REP_LABEL[rep(t)]}）`);
+  }
+
   save();
   render();
 }
@@ -317,6 +365,7 @@ function buildSubjectChips() {
 }
 function setColor(c) { pickedColor = c; document.querySelectorAll(".sw").forEach((s) => s.classList.toggle("on", s.dataset.color === c)); }
 function setPrio(p) { pickedPrio = p; document.querySelectorAll("#prio-seg button").forEach((b) => b.classList.toggle("on", b.dataset.prio === p)); }
+function setRepeat(r) { pickedRepeat = r; document.querySelectorAll("#repeat-seg .q").forEach((b) => b.classList.toggle("on", b.dataset.rep === r)); }
 function markOne(container, btn) { container.querySelectorAll(".q").forEach((q) => q.classList.toggle("on", q === btn)); }
 function quickDate(when) {
   const d = new Date();
@@ -344,6 +393,7 @@ function openSheet(id = null) {
     $("#f-time").value = `${p2(d.getHours())}:${p2(d.getMinutes())}`;
     setColor(t.color || "violet");
     setPrio(prio(t));
+    setRepeat(rep(t));
   } else {
     $("#form").reset();
     $("#f-time").value = "23:59";
@@ -351,6 +401,7 @@ function openSheet(id = null) {
     $("#f-date").value = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
     setColor("violet");
     setPrio("normal");
+    setRepeat("none");
   }
 
   $("#backdrop").hidden = false;
@@ -392,6 +443,7 @@ $("#del-btn").addEventListener("click", () => { if (editingId) { removeTask(edit
 $("#cal-btn").addEventListener("click", () => { const t = tasks.find((x) => x.id === editingId); if (t) downloadICS(t); });
 $("#swatches").addEventListener("click", (e) => { const sw = e.target.closest(".sw"); if (sw) setColor(sw.dataset.color); });
 $("#prio-seg").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) setPrio(b.dataset.prio); });
+$("#repeat-seg").addEventListener("click", (e) => { const b = e.target.closest(".q"); if (b) setRepeat(b.dataset.rep); });
 
 $("#title-quick").addEventListener("click", (e) => { const b = e.target.closest(".q"); if (!b) return; $("#f-title").value = b.dataset.fill; markOne($("#title-quick"), b); });
 $("#subject-quick").addEventListener("click", (e) => { const b = e.target.closest(".q"); if (!b) return; $("#f-subject").value = b.textContent; markOne($("#subject-quick"), b); });
@@ -420,8 +472,8 @@ $("#form").addEventListener("submit", (e) => {
   const date = $("#f-date").value, time = $("#f-time").value;
   if (!title || !date || !time) return;
   const due = new Date(`${date}T${time}`).toISOString();
-  if (editingId) Object.assign(tasks.find((x) => x.id === editingId), { title, subject, due, color: pickedColor, priority: pickedPrio });
-  else tasks.push({ id: uid(), title, subject, due, color: pickedColor, priority: pickedPrio, done: false });
+  if (editingId) Object.assign(tasks.find((x) => x.id === editingId), { title, subject, due, color: pickedColor, priority: pickedPrio, repeat: pickedRepeat });
+  else tasks.push({ id: uid(), title, subject, due, color: pickedColor, priority: pickedPrio, repeat: pickedRepeat, done: false, spawned: false });
   pushSubject(subject);
   save(); closeSheet(); render();
 });
