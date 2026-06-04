@@ -303,5 +303,24 @@ render();
 setInterval(() => { updateClock(); tick(); }, 1000);
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloaded) return; reloaded = true; location.reload();
+  });
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").then((reg) => {
+      reg.update();
+      // if a fresh worker is already waiting, activate it now
+      if (reg.waiting) reg.waiting.postMessage("skip-waiting");
+      reg.addEventListener("updatefound", () => {
+        const sw = reg.installing;
+        if (!sw) return;
+        sw.addEventListener("statechange", () => {
+          if (sw.state === "installed" && navigator.serviceWorker.controller) {
+            sw.postMessage("skip-waiting");
+          }
+        });
+      });
+    }).catch(() => {});
+  });
 }

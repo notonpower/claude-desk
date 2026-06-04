@@ -253,6 +253,13 @@ input[type="date"], input[type="time"] { color-scheme: dark; }
 .btn.ghost { flex: 1; background: var(--bg); color: var(--ink-dim); border: 1px solid var(--rule); }
 .btn.del { background: none; color: var(--signal); border: 1px solid rgba(255,61,46,0.4); padding: 15px 18px; }
 
+.ver {
+  margin-top: 40px; text-align: center;
+  font-family: "JetBrains Mono", monospace; font-size: 10px; letter-spacing: 0.16em;
+  color: var(--ink-faint); text-transform: uppercase;
+  animation: fadeIn 1s ease 0.7s both;
+}
+
 [hidden] { display: none !important; }
 
 /* ---------- view transitions (reorder morph) ---------- */
